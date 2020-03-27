@@ -1,0 +1,35 @@
+N = 100
+Expected ε = 5.0e-2
+False Positive Rate
+	μ = 6.0e-3
+	σ = NaN
+False Negative Rate
+	μ = 0.0
+	σ = NaN
+
+N = 100
+Expected ε = 1.0e-2
+False Positive Rate
+	μ = 0.0
+	σ = NaN
+False Negative Rate
+	μ = 0.0
+	σ = NaN
+
+N = 1000
+Expected ε = 5.0e-2
+False Positive Rate
+	μ = 1.4000000000000002e-3
+	σ = NaN
+False Negative Rate
+	μ = 0.0
+	σ = NaN
+
+N = 1000
+Expected ε = 1.0e-2
+False Positive Rate
+	μ = 1.0000000000000002e-3
+	σ = NaN
+False Negative Rate
+	μ = 0.0
+	σ = NaN

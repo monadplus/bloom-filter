@@ -8,7 +8,9 @@ mkDerivation {
   src = ./.;
   isLibrary = true;
   isExecutable = true;
-  executableHaskellDepends = [ base ];
+  executableHaskellDepends = [
+    base QuickCheck containers
+  ];
   libraryHaskellDepends = [
     bytestring containers directory filepath mtl text data-hash
     vector bitarray
