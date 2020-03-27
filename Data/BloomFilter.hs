@@ -1,22 +1,24 @@
-{-# LANGUAGE BangPatterns   #-}
-{-# LANGUAGE RecordWilCards #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Data.BloomFilter (
-  , Bloom(..)
-  , Hash
-  , easyList
+    Bloom(..)
+  , create
   , elem
+  , length
   ) where
 
 -----------------------------------------------------------------
 
-import           Data.BloomFilter.Hash (cheapHashes)
+import           Data.BitArray.Extras  (BitArray)
+import qualified Data.BitArray.Extras  as BA
+import           Data.BloomFilter.Hash (Hashable (..), cheapHashes)
 import           Data.BloomFilter.Util (nextPowerOfTwo)
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as LBS
+import qualified Data.List             as List
 import           Data.Word
-
-import           Data.BitArray.Extras  (BitArray)
-import qualified Data.BitArray.Extras  as BA
+import           Prelude               hiding (elem, length)
 
 -----------------------------------------------------------------
 
@@ -27,30 +29,35 @@ data Bloom a = Bloom
   , bitArray :: {-# UNPACK #-} !BitArray
   }
 
-easyList :: Hashable a
+create :: Hashable a
          => Double  -- ^ desired false positive rate (0 < /e/ < 1)
          -> [a]     -- ^ values to populate with
          -> Bloom a
-easyList errRate xs = B.fromList (cheapHashes numHashes) numBits xs
-   where capacity = length xs
+create errRate xs = fromList (cheapHashes numHashes) numBits xs
+   where capacity = List.length xs
          (numBits, numHashes)
              | capacity > 0 = suggestSizing capacity errRate
              | otherwise    = (1, 1)
-{-# SPECIALIZE easyList :: Double -> [String] -> Bloom String #-}
-{-# SPECIALIZE easyList :: Double -> [BS.ByteString] -> Bloom BS.ByteString #-}
-{-# SPECIALIZE easyList :: Double -> [LSB.ByteString] -> Bloom LSB.ByteString #-}
+{-# SPECIALIZE create :: Double -> [String] -> Bloom String #-}
+{-# SPECIALIZE create :: Double -> [BS.ByteString] -> Bloom BS.ByteString #-}
+{-# SPECIALIZE create :: Double -> [LBS.ByteString] -> Bloom LBS.ByteString #-}
 
-elem :: a
-     -> Bloom a
+elem :: Bloom a
+     -> a
      -> Bool
-elem a = \Bloom{..} ->
-  contains (toArr hashes a) bitArray
+elem b@Bloom{..} = \a ->
+  BA.contains (toArr hashes m a) bitArray
+    where
+      m = length b
 {-# INLINEABLE elem #-}
 
+length :: Bloom a
+       -> Int
+length Bloom{..} =
+  BA.length bitArray
+{-# INLINEABLE length #-}
 
--- TODO insert, inserList
--- TODO insert, inserList
--- TODO insert, inserList
+
 -- TODO insert, inserList
 
 
@@ -60,17 +67,20 @@ elem a = \Bloom{..} ->
 fromList :: (a -> [Hash])  -- ^ hashing functions
          -> Int            -- ^ length of the bloom filter inner array.
          -> [a]
-         -> BloomFilter a
+         -> Bloom a
 fromList h m =
   Bloom h . foldr go (BA.new m)
     where
-      go !arr x = arr <> (BA.toArr h x)
+      go x !arr = arr <> (toArr h m x)
 {-# INLINEABLE fromList #-}
 
 toArr :: (a -> [Hash]) -- ^ Multi-hashing function
+      -> Int           -- BitArray size
       -> a
-      -> BA.BitArray
-toArr h = BA.fromIndexes . fmap h
+      -> BitArray
+toArr h m = BA.fromIndexes m . fmap (congruent . fromIntegral) . h
+  where
+    congruent = (flip mod) m
 {-# INLINABLE toArr #-}
 
 
@@ -79,6 +89,7 @@ suggestSizing :: Int            -- ^ n: expected maximum capacity
               -> (Int, Int)     -- ^ (m, k)
 suggestSizing n e = either fatal id (safeSuggestSizing n e)
   where fatal = error . ("Data.BloomFilter.suggestSizing: " ++)
+{-# INLINABLE suggestSizing #-}
 
 -- | Suggest a good combination of filter size and number of hash
 -- functions for a Bloom filter, based on its expected maximum
@@ -105,3 +116,4 @@ safeSuggestSizing capacity errRate
     in if roundedBits <= 0 || roundedBits > 0xffffffff
        then Left  "capacity too large to represent"
        else Right (roundedBits, truncate hashes)
+{-# INLINABLE safeSuggestSizing #-}
