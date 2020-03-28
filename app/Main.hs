@@ -6,7 +6,8 @@ import qualified Data.BloomFilter as BF
 
 main :: IO ()
 main = do
-  Test.errorRateTest "experiment.out"
+  runInTerminal
+  --Test.errorRateTest "experiment.out"
 
 -- | Reads a word from the terminal and test if it pass the filter.
 --
